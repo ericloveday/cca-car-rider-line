@@ -92,6 +92,16 @@
   .entry.black { background: var(--black-side); color: #fff; }
   .entry.red { background: var(--red); color: #fff; }
   .entry .name { flex: 1; padding-right: 10px; }
+  .entry .grade {
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.75;
+    white-space: nowrap;
+    margin-right: 10px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.18);
+  }
   .entry .elapsed { font-size: 12px; font-weight: 600; opacity: 0.65; white-space: nowrap; }
   .entry.aging .elapsed { opacity: 1; color: #ffe27a; }
 </style>
@@ -162,9 +172,11 @@
       const aging = ageMs > AGING_THRESHOLD_MS;
       const minutes = Math.floor(ageMs / 60000);
       const seconds = Math.floor((ageMs % 60000) / 1000).toString().padStart(2, '0');
+      const gradeBadge = e.grade ? `<span class="grade">${escapeHtml(e.grade)}</span>` : '';
       return `
         <div class="entry ${side} ${aging ? 'aging' : ''}">
           <span class="name">${escapeHtml(e.name)}</span>
+          ${gradeBadge}
           <span class="elapsed">${minutes}:${seconds}</span>
         </div>`;
     }).join('');
@@ -177,9 +189,20 @@
   }
 
   function confirmClear() {
-    if (confirm('Clear the entire car rider list? This cannot be undone.')) {
-      db.ref('carRiderQueue').remove();
-    }
+    if (!confirm('Clear the board for a new day? Today\'s list will be saved to history first.')) return;
+    const queueRef = db.ref('carRiderQueue');
+    queueRef.once('value')
+      .then((snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const dateKey = new Date().toLocaleDateString('en-CA'); // local YYYY-MM-DD
+          return db.ref('carRiderHistory/' + dateKey).update(data);
+        }
+      })
+      .then(() => queueRef.remove())
+      .catch(() => {
+        alert('Could not save history — the list was left as-is. Try again.');
+      });
   }
 
   function updateClock() {
