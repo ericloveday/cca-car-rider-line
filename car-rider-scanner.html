@@ -228,6 +228,7 @@
   let currentSide = null;
   let html5QrCode = null;
   let lastScanTime = 0;
+  let pendingGrades = [];
   const recentEntries = [];
 
   function getSideFromUrl() {
@@ -290,9 +291,11 @@
   }
 
   function handleScan(decodedText) {
-    // QR content is expected to be the student's name (or "name|grade").
-    const name = decodedText.split('|')[0].trim();
-    addToGroup(name);
+    // QR content format: Name|Grade|Teacher|ID
+    const parts = decodedText.split('|');
+    const name = (parts[0] || '').trim();
+    const grade = (parts[1] || '').trim();
+    addToGroup(name, grade);
   }
 
   function submitManual() {
@@ -303,7 +306,7 @@
       return;
     }
     input.style.border = '1px solid #ccc';
-    addToGroup(name);
+    addToGroup(name, ''); // grade unknown for manual entries
     input.value = '';
   }
 
@@ -317,11 +320,12 @@
 
   document.getElementById('combinedName').addEventListener('input', updateGroupBoxState);
 
-  function addToGroup(name) {
+  function addToGroup(name, grade) {
     const combinedInput = document.getElementById('combinedName');
     combinedInput.value = combinedInput.value.trim()
       ? combinedInput.value.trim() + ' and ' + name
       : name;
+    if (grade && !pendingGrades.includes(grade)) pendingGrades.push(grade);
     updateGroupBoxState();
     showFlash(`Added: ${name}`);
   }
@@ -337,6 +341,7 @@
 
   function resetGroup() {
     document.getElementById('combinedName').value = '';
+    pendingGrades = [];
     updateGroupBoxState();
   }
 
@@ -344,9 +349,11 @@
     const combinedInput = document.getElementById('combinedName');
     const name = combinedInput.value.trim();
     if (!name) return;
+    const gradeSummary = pendingGrades.slice().sort().join('/');
     const entry = {
       name: name,
       side: currentSide,
+      grade: gradeSummary,
       timestamp: firebase.database.ServerValue.TIMESTAMP
     };
     db.ref('carRiderQueue').push(entry);
