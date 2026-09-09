@@ -213,15 +213,15 @@
 </div>
 
 <script>
-  // ---- Firebase config: replace with your project's config ----
- const firebaseConfig = {
-  apiKey: "AIzaSyCIlayBhR2uHGmFMopLBBXneL8hqErwb9Q",
-  authDomain: "cca-car-rider-line.firebaseapp.com",
-  projectId: "cca-car-rider-line",
-  storageBucket: "cca-car-rider-line.firebasestorage.app",
-  messagingSenderId: "972575925170",
-  appId: "1:972575925170:web:093e4b859c525d554a7aab"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyCIlayBhR2uHGmFMopLBBXneL8hqErwb9Q",
+    authDomain: "cca-car-rider-line.firebaseapp.com",
+    databaseURL: "https://cca-car-rider-line-default-rtdb.firebaseio.com",
+    projectId: "cca-car-rider-line",
+    storageBucket: "cca-car-rider-line.firebasestorage.app",
+    messagingSenderId: "972575925170",
+    appId: "1:972575925170:web:093e4b859c525d554a7aab"
+  };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
