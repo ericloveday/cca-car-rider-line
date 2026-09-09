@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -41,18 +41,42 @@
     cursor: pointer;
   }
 
-  #empty {
+  #board {
+    display: flex;
+    align-items: stretch;
+    min-height: calc(100vh - 60px);
+  }
+  .side-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .side-section.black { border-right: 2px solid #333; }
+  .side-header {
     text-align: center;
-    color: #666;
-    font-size: 22px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px;
+  }
+  .side-header.black { background: var(--black-side); color: #fff; }
+  .side-header.red { background: var(--red); color: #fff; }
+
+  .side-empty {
+    text-align: center;
+    color: #555;
+    font-size: 16px;
     font-weight: 600;
-    padding-top: 120px;
+    padding-top: 60px;
   }
 
-  #list {
-    padding: 10px;
-    column-width: 300px;
+  .side-list {
+    padding: 8px;
+    column-width: 260px;
     column-gap: 4px;
+    flex: 1;
   }
   .entry {
     break-inside: avoid;
@@ -63,6 +87,7 @@
     font-size: 17px;
     font-weight: 700;
     line-height: 1.25;
+    margin-bottom: 3px;
   }
   .entry.black { background: var(--black-side); color: #fff; }
   .entry.red { background: var(--red); color: #fff; }
@@ -84,12 +109,22 @@
   <button id="clearBtn" onclick="confirmClear()">Clear list</button>
 </header>
 
-<div id="empty">No students in the line yet</div>
-<div id="list"></div>
+<div id="board">
+  <div class="side-section black">
+    <div class="side-header black">Black side</div>
+    <div id="blackEmpty" class="side-empty">No students yet</div>
+    <div id="blackList" class="side-list"></div>
+  </div>
+  <div class="side-section red">
+    <div class="side-header red">Red side</div>
+    <div id="redEmpty" class="side-empty">No students yet</div>
+    <div id="redList" class="side-list"></div>
+  </div>
+</div>
 
 <script>
   // ---- Firebase config: replace with your project's config ----
-  const firebaseConfig = {
+ const firebaseConfig = {
   apiKey: "AIzaSyCIlayBhR2uHGmFMopLBBXneL8hqErwb9Q",
   authDomain: "cca-car-rider-line.firebaseapp.com",
   projectId: "cca-car-rider-line",
@@ -114,22 +149,26 @@
   });
 
   function render() {
-    const list = document.getElementById('list');
-    const empty = document.getElementById('empty');
-    if (entries.length === 0) {
-      empty.style.display = 'block';
-      list.innerHTML = '';
+    renderSide('black', document.getElementById('blackList'), document.getElementById('blackEmpty'));
+    renderSide('red', document.getElementById('redList'), document.getElementById('redEmpty'));
+  }
+
+  function renderSide(side, listEl, emptyEl) {
+    const sideEntries = entries.filter(e => e.side === side);
+    if (sideEntries.length === 0) {
+      emptyEl.style.display = 'block';
+      listEl.innerHTML = '';
       return;
     }
-    empty.style.display = 'none';
+    emptyEl.style.display = 'none';
     const now = Date.now();
-    list.innerHTML = entries.map(e => {
+    listEl.innerHTML = sideEntries.map(e => {
       const ageMs = now - e.timestamp;
       const aging = ageMs > AGING_THRESHOLD_MS;
       const minutes = Math.floor(ageMs / 60000);
       const seconds = Math.floor((ageMs % 60000) / 1000).toString().padStart(2, '0');
       return `
-        <div class="entry ${e.side} ${aging ? 'aging' : ''}">
+        <div class="entry ${side} ${aging ? 'aging' : ''}">
           <span class="name">${escapeHtml(e.name)}</span>
           <span class="elapsed">${minutes}:${seconds}</span>
         </div>`;
