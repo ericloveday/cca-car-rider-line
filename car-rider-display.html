@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Car Rider Dismissal</title>
+<title>Car Rider Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -11,130 +12,229 @@
   :root {
     --red: #ce1f07;
     --black-side: #1a1a1a;
+    --gray: #f4f4f4;
+    --recall: #d98600;
   }
   * { box-sizing: border-box; }
-  html, body {
+  body {
     margin: 0;
     font-family: 'Montserrat', sans-serif;
-    background: #0f0f0f;
-    color: #fff;
-    height: 100%;
+    background: #fff;
+    color: #1a1a1a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
   }
+  #sidePicker {
+    max-width: 420px;
+    width: 100%;
+    margin-top: 60px;
+    text-align: center;
+  }
+  #sidePicker h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; }
+  .sideBtn {
+    display: block;
+    width: 100%;
+    padding: 28px;
+    margin-bottom: 16px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  .sideBtn.black { background: var(--black-side); }
+  .sideBtn.red { background: var(--red); }
+
   header {
+    width: 100%;
+    max-width: 480px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 28px;
-    background: #1a1a1a;
-    border-bottom: 3px solid var(--red);
+    margin-bottom: 16px;
   }
-  header h1 { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: 0.5px; }
-  #clock { font-size: 16px; font-weight: 600; color: #ccc; }
-  #clearBtn {
+  #sideLabel {
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+  }
+  #sideLabel.black { background: var(--black-side); }
+  #sideLabel.red { background: var(--red); }
+  #switchSide {
     background: none;
-    border: 1px solid #555;
-    color: #aaa;
-    padding: 6px 14px;
+    border: 1px solid #ccc;
     border-radius: 6px;
+    padding: 6px 12px;
     font-family: 'Montserrat', sans-serif;
-    font-size: 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #555;
+  }
+
+  #app { width: 100%; max-width: 480px; display: none; }
+
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+
+  .groupBox {
+    background: var(--gray);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    border: 2px solid transparent;
+  }
+  .groupBox.hasEntries { border-color: var(--black-side); }
+  .groupBox label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-bottom: 8px; }
+  #combinedName {
+    width: 100%;
+    padding: 14px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .groupRow { display: flex; gap: 8px; flex-wrap: wrap; }
+  #sendGroup {
+    flex: 1;
+    min-width: 120px;
+    padding: 14px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  #sendGroup:disabled { background: #ccc; cursor: not-allowed; }
+  #recallGroup {
+    flex: 1;
+    min-width: 120px;
+    padding: 14px;
+    background: var(--recall);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  #recallGroup:disabled { background: #ccc; cursor: not-allowed; }
+  #clearGroup {
+    padding: 14px 16px;
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    color: #777;
+  }
+  .hint { font-size: 12px; color: #999; margin-top: 8px; }
+
+  .manualBox {
+    background: var(--gray);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .manualBox label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-bottom: 8px; }
+  .manualRow { display: flex; gap: 8px; }
+  #manualName {
+    flex: 1;
+    padding: 14px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  #manualAdd {
+    padding: 14px 20px;
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
     cursor: pointer;
   }
 
-  #board {
-    display: flex;
-    align-items: stretch;
-    min-height: calc(100vh - 60px);
-  }
-  .side-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .side-section.black { border-right: 2px solid #333; }
-  .side-header {
+  #flash {
     text-align: center;
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 8px;
-  }
-  .side-header.black { background: var(--black-side); color: #fff; }
-  .side-header.red { background: var(--red); color: #fff; }
-
-  .side-empty {
-    text-align: center;
-    color: #555;
-    font-size: 16px;
-    font-weight: 600;
-    padding-top: 60px;
-  }
-
-  .side-list {
-    padding: 8px;
-    column-width: 260px;
-    column-gap: 4px;
-    flex: 1;
-  }
-  .entry {
-    break-inside: avoid;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 7px 14px;
     font-size: 17px;
     font-weight: 700;
-    line-height: 1.25;
-    margin-bottom: 3px;
+    padding: 14px;
+    border-radius: 8px;
+    background: #e9f7ec;
+    color: #1e7e34;
+    margin-bottom: 16px;
+    display: none;
   }
-  .entry.black { background: var(--black-side); color: #fff; }
-  .entry.red { background: var(--red); color: #fff; }
-  .entry .name { flex: 1; padding-right: 10px; }
-  .entry .grade {
-    font-size: 12px;
-    font-weight: 700;
-    opacity: 0.75;
-    white-space: nowrap;
-    margin-right: 10px;
-    padding: 2px 7px;
-    border-radius: 5px;
-    background: rgba(255,255,255,0.18);
+  #flash.recallFlash {
+    background: #fdf1de;
+    color: #a85f00;
   }
-  .entry .ageDot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex: 0 0 10px;
-    background: transparent;
-  }
-  .entry.aging .ageDot { background: #ffe27a; }
+
+  #recent { font-size: 13px; color: #777; }
+  #recent div { padding: 6px 0; border-bottom: 1px solid #eee; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Car Rider Dismissal</h1>
-  <div id="clock"></div>
-  <button id="clearBtn" onclick="confirmClear()">Clear list</button>
-</header>
+<div id="sidePicker">
+  <h1>Which line are you scanning?</h1>
+  <button class="sideBtn black" onclick="chooseSide('black')">Black side</button>
+  <button class="sideBtn red" onclick="chooseSide('red')">Red side</button>
+</div>
 
-<div id="board">
-  <div class="side-section black">
-    <div class="side-header black">Black side</div>
-    <div id="blackEmpty" class="side-empty">No students yet</div>
-    <div id="blackList" class="side-list"></div>
+<div id="app">
+  <header>
+    <span id="sideLabel"></span>
+    <button id="switchSide" onclick="clearSide()">Switch side</button>
+  </header>
+
+  <div id="flash"></div>
+
+  <div id="reader"></div>
+
+  <div class="groupBox" id="groupBox">
+    <label for="combinedName">This car (scan or type each student, then send)</label>
+    <input type="text" id="combinedName" placeholder="Names will build here as you scan..." autocomplete="off">
+    <div class="groupRow">
+      <button id="sendGroup" onclick="sendGroup()" disabled>Send to Screen</button>
+      <button id="recallGroup" onclick="recallGroup()" disabled>Recalls</button>
+      <button id="clearGroup" onclick="resetGroup()">Clear</button>
+    </div>
+    <div class="hint">Multiple kids in one car? Just scan or type each one — they'll combine into a single line automatically. Edit the text before sending if you need to. Already on the board but the car hasn't come through? Scan or type the same name(s) and hit Recalls instead — it'll flag the existing line on the screen rather than adding a duplicate.</div>
   </div>
-  <div class="side-section red">
-    <div class="side-header red">Red side</div>
-    <div id="redEmpty" class="side-empty">No students yet</div>
-    <div id="redList" class="side-list"></div>
+
+  <div class="manualBox">
+    <label for="manualName">No card? Type a student's name and add it to this car</label>
+    <div class="manualRow">
+      <input type="text" id="manualName" placeholder="Student name" autocomplete="off">
+      <button id="manualAdd" onclick="submitManual()">Add</button>
+    </div>
   </div>
+
+  <div id="recent"></div>
 </div>
 
 <script>
-  // ---- Firebase config ----
   const firebaseConfig = {
     apiKey: "AIzaSyCIlayBhR2uHGmFMopLBBXneL8hqErwb9Q",
     authDomain: "cca-car-rider-line.firebaseapp.com",
@@ -147,77 +247,222 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  const AGING_THRESHOLD_MS = 3.5 * 60 * 1000; // 3.5 minutes
+  let currentSide = null;
+  let html5QrCode = null;
+  let lastScanTime = 0;
+  let pendingGrades = [];
+  const recentEntries = [];
 
-  let entries = [];
-
+  // Live cache of the queue so Recalls can find an existing entry
+  // without needing its own search UI.
+  let queueCache = {};
   db.ref('carRiderQueue').on('value', (snapshot) => {
-    const data = snapshot.val() || {};
-    entries = Object.entries(data)
-      .map(([key, val]) => ({ key, ...val }))
-      .filter(e => e.timestamp)
-      .sort((a, b) => a.timestamp - b.timestamp);
-    render();
+    queueCache = snapshot.val() || {};
   });
 
-  function render() {
-    renderSide('black', document.getElementById('blackList'), document.getElementById('blackEmpty'));
-    renderSide('red', document.getElementById('redList'), document.getElementById('redEmpty'));
+  function getSideFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('side');
+    return (s === 'black' || s === 'red') ? s : null;
   }
 
-  function renderSide(side, listEl, emptyEl) {
-    const sideEntries = entries.filter(e => e.side === side);
-    if (sideEntries.length === 0) {
-      emptyEl.style.display = 'block';
-      listEl.innerHTML = '';
+  function chooseSide(side) {
+    currentSide = side;
+    document.getElementById('sidePicker').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    const label = document.getElementById('sideLabel');
+    label.textContent = side === 'black' ? 'Black side' : 'Red side';
+    label.className = side;
+    startScanner();
+  }
+
+  function clearSide() {
+    // html5-qrcode's stop() can throw synchronously if the scanner
+    // isn't in a running state, which would otherwise block the
+    // picker from re-appearing below. Wrap it so the UI always resets.
+    try {
+      if (html5QrCode) {
+        const stopResult = html5QrCode.stop();
+        if (stopResult && typeof stopResult.catch === 'function') {
+          stopResult.catch(() => {}).finally(() => {
+            try { html5QrCode.clear(); } catch (e) {}
+          });
+        }
+      }
+    } catch (e) {
+      // scanner wasn't running — nothing to stop, that's fine
+    }
+    document.getElementById('reader').innerHTML = '';
+    html5QrCode = null;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('sidePicker').style.display = 'block';
+    currentSide = null;
+    resetGroup();
+  }
+
+  function startScanner() {
+    document.getElementById('reader').innerHTML = '';
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 240, height: 240 } },
+      (decodedText) => {
+        const now = Date.now();
+        if (now - lastScanTime < 2000) return; // debounce duplicate scans
+        lastScanTime = now;
+        handleScan(decodedText);
+      },
+      () => {}
+    ).catch((err) => {
+      document.getElementById('reader').innerHTML =
+        '<p style="text-align:center;color:#999;padding:20px;">Camera unavailable. Use manual entry below.</p>';
+    });
+  }
+
+  function handleScan(decodedText) {
+    // QR content format: Name|Grade|Teacher|ID
+    const parts = decodedText.split('|');
+    const name = (parts[0] || '').trim();
+    const grade = (parts[1] || '').trim();
+    addToGroup(name, grade);
+  }
+
+  function submitManual() {
+    const input = document.getElementById('manualName');
+    const name = input.value.trim();
+    if (!name) {
+      input.style.border = '1px solid var(--red)';
       return;
     }
-    emptyEl.style.display = 'none';
-    const now = Date.now();
-    listEl.innerHTML = sideEntries.map(e => {
-      const ageMs = now - e.timestamp;
-      const aging = ageMs > AGING_THRESHOLD_MS;
-      const gradeBadge = e.grade ? `<span class="grade">${escapeHtml(e.grade)}</span>` : '';
-      return `
-        <div class="entry ${side} ${aging ? 'aging' : ''}">
-          <span class="name">${escapeHtml(e.name)}</span>
-          ${gradeBadge}
-          <span class="ageDot"></span>
-        </div>`;
-    }).join('');
+    input.style.border = '1px solid #ccc';
+    addToGroup(name, ''); // grade unknown for manual entries
+    input.value = '';
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+  document.getElementById('manualName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitManual();
+  });
+
+  document.getElementById('combinedName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendGroup();
+  });
+
+  document.getElementById('combinedName').addEventListener('input', updateGroupBoxState);
+
+  function addToGroup(name, grade) {
+    const combinedInput = document.getElementById('combinedName');
+    combinedInput.value = combinedInput.value.trim()
+      ? combinedInput.value.trim() + ' and ' + name
+      : name;
+    if (grade && !pendingGrades.includes(grade)) pendingGrades.push(grade);
+    updateGroupBoxState();
+    showFlash(`Added: ${name}`);
   }
 
-  function confirmClear() {
-    if (!confirm('Clear the board for a new day? Today\'s list will be saved to history first.')) return;
-    const queueRef = db.ref('carRiderQueue');
-    queueRef.once('value')
-      .then((snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          const dateKey = new Date().toLocaleDateString('en-CA'); // local YYYY-MM-DD
-          return db.ref('carRiderHistory/' + dateKey).update(data);
-        }
-      })
-      .then(() => queueRef.remove())
-      .catch(() => {
-        alert('Could not save history — the list was left as-is. Try again.');
+  function updateGroupBoxState() {
+    const combinedInput = document.getElementById('combinedName');
+    const groupBox = document.getElementById('groupBox');
+    const sendBtn = document.getElementById('sendGroup');
+    const recallBtn = document.getElementById('recallGroup');
+    const hasText = combinedInput.value.trim().length > 0;
+    groupBox.classList.toggle('hasEntries', hasText);
+    sendBtn.disabled = !hasText;
+    recallBtn.disabled = !hasText;
+  }
+
+  function resetGroup() {
+    document.getElementById('combinedName').value = '';
+    pendingGrades = [];
+    updateGroupBoxState();
+  }
+
+  function sendGroup() {
+    const combinedInput = document.getElementById('combinedName');
+    const name = combinedInput.value.trim();
+    if (!name) return;
+    const gradeSummary = pendingGrades.slice().sort().join('/');
+    const entry = {
+      name: name,
+      side: currentSide,
+      grade: gradeSummary,
+      timestamp: firebase.database.ServerValue.TIMESTAMP
+    };
+    db.ref('carRiderQueue').push(entry);
+    showFlash(`Sent: ${name}`);
+    recentEntries.unshift(name);
+    if (recentEntries.length > 5) recentEntries.pop();
+    renderRecent();
+    resetGroup();
+  }
+
+  // Flags an existing (not-yet-recalled) entry on the board that
+  // matches this side + name so it moves to the Recall column,
+  // instead of creating a duplicate line. Falls back to pushing a
+  // fresh recalled entry if no exact match is found, so a slightly
+  // different spelling or an entry that's already been cleared
+  // still shows up on the board.
+  function recallGroup() {
+    const combinedInput = document.getElementById('combinedName');
+    const name = combinedInput.value.trim();
+    if (!name) return;
+
+    const normalized = name.toLowerCase();
+    let matchKey = null;
+    let matchTimestamp = -1;
+
+    Object.entries(queueCache).forEach(([key, val]) => {
+      if (!val || val.recalled) return;
+      if (val.side !== currentSide) return;
+      if ((val.name || '').trim().toLowerCase() !== normalized) return;
+      if (val.timestamp > matchTimestamp) {
+        matchTimestamp = val.timestamp;
+        matchKey = key;
+      }
+    });
+
+    if (matchKey) {
+      db.ref('carRiderQueue/' + matchKey).update({
+        recalled: true,
+        recalledTimestamp: firebase.database.ServerValue.TIMESTAMP
       });
+    } else {
+      const gradeSummary = pendingGrades.slice().sort().join('/');
+      db.ref('carRiderQueue').push({
+        name: name,
+        side: currentSide,
+        grade: gradeSummary,
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        recalled: true,
+        recalledTimestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+    }
+
+    showFlash(`Recalled: ${name}`, true);
+    recentEntries.unshift(`Recall: ${name}`);
+    if (recentEntries.length > 5) recentEntries.pop();
+    renderRecent();
+    resetGroup();
   }
 
-  function updateClock() {
-    document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  function showFlash(text, isRecall) {
+    const flash = document.getElementById('flash');
+    flash.textContent = text;
+    flash.classList.toggle('recallFlash', !!isRecall);
+    flash.style.display = 'block';
+    clearTimeout(window._flashTimeout);
+    window._flashTimeout = setTimeout(() => { flash.style.display = 'none'; }, 1500);
   }
-  setInterval(updateClock, 1000);
-  updateClock();
 
-  // Re-render every second so elapsed time and aging highlight stay live
-  setInterval(render, 1000);
+  function renderRecent() {
+    const container = document.getElementById('recent');
+    container.innerHTML = recentEntries.map(n => `<div>Sent: ${n}</div>`).join('');
+  }
+
+  // Auto-select side from URL if present, otherwise show picker
+  window.addEventListener('load', () => {
+    const urlSide = getSideFromUrl();
+    if (urlSide) chooseSide(urlSide);
+  });
 </script>
 
 </body>
