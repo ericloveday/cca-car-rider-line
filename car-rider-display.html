@@ -22,6 +22,7 @@
     height: 100%;
   }
   header {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -30,7 +31,16 @@
     border-bottom: 3px solid var(--red);
   }
   header h1 { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: 0.5px; }
-  #clock { font-size: 24px; font-weight: 800; color: #ffffff; }
+  #clock {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 800;
+    color: #ffffff;
+    white-space: nowrap;
+  }
   #clearBtn {
     background: none;
     border: 1px solid #555;
