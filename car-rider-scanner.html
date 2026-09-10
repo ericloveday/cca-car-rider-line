@@ -386,3 +386,391 @@
 
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Rider Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+  :root {
+    --red: #ce1f07;
+    --black-side: #1a1a1a;
+    --gray: #f4f4f4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Montserrat', sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+  }
+  #sidePicker {
+    max-width: 420px;
+    width: 100%;
+    margin-top: 60px;
+    text-align: center;
+  }
+  #sidePicker h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; }
+  .sideBtn {
+    display: block;
+    width: 100%;
+    padding: 28px;
+    margin-bottom: 16px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  .sideBtn.black { background: var(--black-side); }
+  .sideBtn.red { background: var(--red); }
+
+  header {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  #sideLabel {
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+  }
+  #sideLabel.black { background: var(--black-side); }
+  #sideLabel.red { background: var(--red); }
+  #switchSide {
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    color: #555;
+  }
+
+  #app { width: 100%; max-width: 480px; display: none; }
+
+  #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+
+  .groupBox {
+    background: var(--gray);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    border: 2px solid transparent;
+  }
+  .groupBox.hasEntries { border-color: var(--black-side); }
+  .groupBox label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-bottom: 8px; }
+  #combinedName {
+    width: 100%;
+    padding: 14px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .groupRow { display: flex; gap: 8px; }
+  #sendGroup {
+    flex: 1;
+    padding: 14px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  #sendGroup:disabled { background: #ccc; cursor: not-allowed; }
+  #clearGroup {
+    padding: 14px 16px;
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    color: #777;
+  }
+  .hint { font-size: 12px; color: #999; margin-top: 8px; }
+
+  .manualBox {
+    background: var(--gray);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .manualBox label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-bottom: 8px; }
+  .manualRow { display: flex; gap: 8px; }
+  #manualName {
+    flex: 1;
+    padding: 14px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  #manualAdd {
+    padding: 14px 20px;
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  #flash {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 14px;
+    border-radius: 8px;
+    background: #e9f7ec;
+    color: #1e7e34;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  #recent { font-size: 13px; color: #777; }
+  #recent div { padding: 6px 0; border-bottom: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div id="sidePicker">
+  <h1>Which line are you scanning?</h1>
+  <button class="sideBtn black" onclick="chooseSide('black')">Black side</button>
+  <button class="sideBtn red" onclick="chooseSide('red')">Red side</button>
+</div>
+
+<div id="app">
+  <header>
+    <span id="sideLabel"></span>
+    <button id="switchSide" onclick="clearSide()">Switch side</button>
+  </header>
+
+  <div id="flash"></div>
+
+  <div id="reader"></div>
+
+  <div class="groupBox" id="groupBox">
+    <label for="combinedName">This car (scan or type each student, then send)</label>
+    <input type="text" id="combinedName" placeholder="Names will build here as you scan..." autocomplete="off">
+    <div class="groupRow">
+      <button id="sendGroup" onclick="sendGroup()" disabled>Send to line</button>
+      <button id="clearGroup" onclick="resetGroup()">Clear</button>
+    </div>
+    <div class="hint">Multiple kids in one car? Just scan or type each one — they'll combine into a single line automatically. Edit the text before sending if you need to.</div>
+  </div>
+
+  <div class="manualBox">
+    <label for="manualName">No card? Type a student's name and add it to this car</label>
+    <div class="manualRow">
+      <input type="text" id="manualName" placeholder="Student name" autocomplete="off">
+      <button id="manualAdd" onclick="submitManual()">Add</button>
+    </div>
+  </div>
+
+  <div id="recent"></div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCIlayBhR2uHGmFMopLBBXneL8hqErwb9Q",
+    authDomain: "cca-car-rider-line.firebaseapp.com",
+    databaseURL: "https://cca-car-rider-line-default-rtdb.firebaseio.com",
+    projectId: "cca-car-rider-line",
+    storageBucket: "cca-car-rider-line.firebasestorage.app",
+    messagingSenderId: "972575925170",
+    appId: "1:972575925170:web:093e4b859c525d554a7aab"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  let currentSide = null;
+  let html5QrCode = null;
+  let lastScanTime = 0;
+  let pendingGrades = [];
+  const recentEntries = [];
+
+  function getSideFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('side');
+    return (s === 'black' || s === 'red') ? s : null;
+  }
+
+  function chooseSide(side) {
+    currentSide = side;
+    document.getElementById('sidePicker').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    const label = document.getElementById('sideLabel');
+    label.textContent = side === 'black' ? 'Black side' : 'Red side';
+    label.className = side;
+    startScanner();
+  }
+
+  function clearSide() {
+    // html5-qrcode's stop() can throw synchronously if the scanner
+    // isn't in a running state, which would otherwise block the
+    // picker from re-appearing below. Wrap it so the UI always resets.
+    try {
+      if (html5QrCode) {
+        const stopResult = html5QrCode.stop();
+        if (stopResult && typeof stopResult.catch === 'function') {
+          stopResult.catch(() => {}).finally(() => {
+            try { html5QrCode.clear(); } catch (e) {}
+          });
+        }
+      }
+    } catch (e) {
+      // scanner wasn't running — nothing to stop, that's fine
+    }
+    document.getElementById('reader').innerHTML = '';
+    html5QrCode = null;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('sidePicker').style.display = 'block';
+    currentSide = null;
+    resetGroup();
+  }
+
+  function startScanner() {
+    document.getElementById('reader').innerHTML = '';
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 240, height: 240 } },
+      (decodedText) => {
+        const now = Date.now();
+        if (now - lastScanTime < 2000) return; // debounce duplicate scans
+        lastScanTime = now;
+        handleScan(decodedText);
+      },
+      () => {}
+    ).catch((err) => {
+      document.getElementById('reader').innerHTML =
+        '<p style="text-align:center;color:#999;padding:20px;">Camera unavailable. Use manual entry below.</p>';
+    });
+  }
+
+  function handleScan(decodedText) {
+    // QR content format: Name|Grade|Teacher|ID
+    const parts = decodedText.split('|');
+    const name = (parts[0] || '').trim();
+    const grade = (parts[1] || '').trim();
+    addToGroup(name, grade);
+  }
+
+  function submitManual() {
+    const input = document.getElementById('manualName');
+    const name = input.value.trim();
+    if (!name) {
+      input.style.border = '1px solid var(--red)';
+      return;
+    }
+    input.style.border = '1px solid #ccc';
+    addToGroup(name, ''); // grade unknown for manual entries
+    input.value = '';
+  }
+
+  document.getElementById('manualName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitManual();
+  });
+
+  document.getElementById('combinedName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendGroup();
+  });
+
+  document.getElementById('combinedName').addEventListener('input', updateGroupBoxState);
+
+  function addToGroup(name, grade) {
+    const combinedInput = document.getElementById('combinedName');
+    combinedInput.value = combinedInput.value.trim()
+      ? combinedInput.value.trim() + ' and ' + name
+      : name;
+    if (grade && !pendingGrades.includes(grade)) pendingGrades.push(grade);
+    updateGroupBoxState();
+    showFlash(`Added: ${name}`);
+  }
+
+  function updateGroupBoxState() {
+    const combinedInput = document.getElementById('combinedName');
+    const groupBox = document.getElementById('groupBox');
+    const sendBtn = document.getElementById('sendGroup');
+    const hasText = combinedInput.value.trim().length > 0;
+    groupBox.classList.toggle('hasEntries', hasText);
+    sendBtn.disabled = !hasText;
+  }
+
+  function resetGroup() {
+    document.getElementById('combinedName').value = '';
+    pendingGrades = [];
+    updateGroupBoxState();
+  }
+
+  function sendGroup() {
+    const combinedInput = document.getElementById('combinedName');
+    const name = combinedInput.value.trim();
+    if (!name) return;
+    const gradeSummary = pendingGrades.slice().sort().join('/');
+    const entry = {
+      name: name,
+      side: currentSide,
+      grade: gradeSummary,
+      timestamp: firebase.database.ServerValue.TIMESTAMP
+    };
+    db.ref('carRiderQueue').push(entry);
+    showFlash(`Sent: ${name}`);
+    recentEntries.unshift(name);
+    if (recentEntries.length > 5) recentEntries.pop();
+    renderRecent();
+    resetGroup();
+  }
+
+  function showFlash(text) {
+    const flash = document.getElementById('flash');
+    flash.textContent = text;
+    flash.style.display = 'block';
+    clearTimeout(window._flashTimeout);
+    window._flashTimeout = setTimeout(() => { flash.style.display = 'none'; }, 1500);
+  }
+
+  function renderRecent() {
+    const container = document.getElementById('recent');
+    container.innerHTML = recentEntries.map(n => `<div>Sent: ${n}</div>`).join('');
+  }
+
+  // Auto-select side from URL if present, otherwise show picker
+  window.addEventListener('load', () => {
+    const urlSide = getSideFromUrl();
+    if (urlSide) chooseSide(urlSide);
+  });
+</script>
+
+</body>
+</html>
