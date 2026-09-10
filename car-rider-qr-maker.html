@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Rider QR Card Maker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+  :root { --red: #ce1f07; --black-side: #1a1a1a; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Montserrat', sans-serif;
+    background: #f4f4f4;
+    color: #1a1a1a;
+  }
+  .controls {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .sub { font-size: 14px; color: #666; margin-bottom: 20px; }
+  label { font-size: 13px; font-weight: 700; color: #444; display: block; margin-bottom: 6px; }
+  textarea {
+    width: 100%;
+    height: 160px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    resize: vertical;
+    margin-bottom: 8px;
+  }
+  .hint { font-size: 12px; color: #888; margin-bottom: 16px; }
+  .btnRow { display: flex; gap: 10px; margin-bottom: 8px; }
+  button {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #generateBtn { background: var(--black-side); color: #fff; }
+  #printBtn { background: var(--red); color: #fff; }
+  #testDataBtn { background: none; border: 1px solid #ccc; color: #555; }
+  #status { font-size: 13px; font-weight: 600; margin-top: 8px; }
+  #status.ok { color: #1e7e34; }
+  #status.err { color: var(--red); }
+
+  #sheet { padding: 0 24px 40px; }
+  .gradeGroup { margin-bottom: 30px; page-break-after: always; }
+  .gradeGroup:last-child { page-break-after: auto; }
+  .gradeTitle {
+    font-size: 16px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 4px;
+    color: #444;
+  }
+  .cardGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 3in);
+    grid-auto-rows: 4in;
+    gap: 0.2in;
+  }
+  .card {
+    width: 3in;
+    height: 4in;
+    border: 1.5px dashed #999;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15in;
+    text-align: center;
+    background: #fff;
+  }
+  .card .name { font-size: 20px; font-weight: 800; line-height: 1.15; margin-bottom: 4px; }
+  .card .meta { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
+  .card .qr { margin: 4px 0; }
+  .card .id { font-size: 10px; color: #999; margin-top: 8px; letter-spacing: 0.5px; }
+
+  @media print {
+    .controls, #status { display: none; }
+    body { background: #fff; }
+    .card { border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>Car Rider QR Card Maker</h1>
+  <div class="sub">Generates one printable card per student, grouped by grade, sized for laminating.</div>
+
+  <label for="rosterInput">Paste roster (one student per line: Last, First, Grade, Teacher)</label>
+  <textarea id="rosterInput" placeholder="McKenney, Andrew, 2, Ms. Rivera&#10;McKenney, Aiden, 4, Mr. Boyd&#10;Smith, Mykinley, K, Mrs. Owens"></textarea>
+  <div class="hint">Grade can be K, 1–8, etc. Teacher is optional — leave blank if you don't have it yet.</div>
+
+  <div class="btnRow">
+    <button id="generateBtn" onclick="generateFromInput()">Generate cards</button>
+    <button id="testDataBtn" onclick="loadTestData()">Load test data</button>
+    <button id="printBtn" onclick="window.print()">Print</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<div id="sheet"></div>
+
+<script>
+  const GRADE_ORDER = ['K','1','2','3','4','5','6','7','8','9','10','11','12'];
+
+  const TEST_DATA = [
+    { last: 'McKenney', first: 'Andrew', grade: '2', teacher: 'Ms. Rivera' },
+    { last: 'McKenney', first: 'Aiden', grade: '4', teacher: 'Mr. Boyd' },
+    { last: 'Smith', first: 'Mykinley', grade: 'K', teacher: 'Mrs. Owens' },
+    { last: 'Ghandi', first: 'Rayansh', grade: '1', teacher: 'Mrs. Owens' },
+    { last: 'Collins', first: 'Madison', grade: '3', teacher: 'Mr. Boyd' },
+    { last: 'Upchurch', first: 'Will', grade: '5', teacher: 'Ms. Patel' },
+    { last: 'Stull', first: 'Sullivan', grade: '6', teacher: 'Mr. Loveday' },
+    { last: 'Homer', first: 'Gigi', grade: '7', teacher: 'Mr. Loveday' },
+    { last: 'Sutton', first: 'Sullivan', grade: '7', teacher: 'Mr. Loveday' },
+    { last: 'Bunch', first: 'Charlie', grade: '8', teacher: 'Mrs. Kessler' },
+    { last: 'Park', first: 'Layla', grade: '8', teacher: 'Mrs. Kessler' },
+    { last: 'Winn', first: 'Beau', grade: 'K', teacher: 'Mrs. Owens' }
+  ];
+
+  function loadTestData() {
+    document.getElementById('rosterInput').value = TEST_DATA
+      .map(s => `${s.last}, ${s.first}, ${s.grade}, ${s.teacher}`)
+      .join('\n');
+    generateFromInput();
+  }
+
+  function parseRoster(text) {
+    return text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => {
+        const parts = line.split(',').map(p => p.trim());
+        return { last: parts[0] || '', first: parts[1] || '', grade: parts[2] || '', teacher: parts[3] || '' };
+      })
+      .filter(s => s.first && s.last);
+  }
+
+  function gradeSortKey(grade) {
+    const idx = GRADE_ORDER.indexOf(grade);
+    return idx === -1 ? 999 : idx;
+  }
+
+  function generateFromInput() {
+    const raw = document.getElementById('rosterInput').value;
+    const students = parseRoster(raw);
+    const statusEl = document.getElementById('status');
+    if (students.length === 0) {
+      statusEl.textContent = 'No valid rows found. Use: Last, First, Grade, Teacher (one per line).';
+      statusEl.className = 'err';
+      document.getElementById('sheet').innerHTML = '';
+      return;
+    }
+
+    // Assign a stable sequential ID to each student
+    students.forEach((s, i) => {
+      s.id = 'CCA-' + String(i + 1).padStart(4, '0');
+    });
+
+    students.sort((a, b) => gradeSortKey(a.grade) - gradeSortKey(b.grade) || a.last.localeCompare(b.last));
+
+    const byGrade = {};
+    students.forEach(s => {
+      const key = s.grade || 'Ungraded';
+      if (!byGrade[key]) byGrade[key] = [];
+      byGrade[key].push(s);
+    });
+
+    const sheet = document.getElementById('sheet');
+    sheet.innerHTML = '';
+    Object.keys(byGrade)
+      .sort((a, b) => gradeSortKey(a) - gradeSortKey(b))
+      .forEach(grade => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'gradeGroup';
+        const title = document.createElement('div');
+        title.className = 'gradeTitle';
+        title.textContent = 'Grade ' + grade;
+        groupDiv.appendChild(title);
+
+        const grid = document.createElement('div');
+        grid.className = 'cardGrid';
+        byGrade[grade].forEach(s => grid.appendChild(buildCard(s)));
+        groupDiv.appendChild(grid);
+        sheet.appendChild(groupDiv);
+      });
+
+    statusEl.textContent = `Generated ${students.length} card(s) across ${Object.keys(byGrade).length} grade group(s).`;
+    statusEl.className = 'ok';
+  }
+
+  function buildCard(s) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = `${s.first} ${s.last}`;
+    card.appendChild(name);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `Grade ${s.grade}` + (s.teacher ? ' · ' + s.teacher : '');
+    card.appendChild(meta);
+
+    const qrDiv = document.createElement('div');
+    qrDiv.className = 'qr';
+    card.appendChild(qrDiv);
+
+    const qrText = `${s.first} ${s.last}|${s.grade}|${s.teacher}|${s.id}`;
+    new QRCode(qrDiv, { text: qrText, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.M });
+
+    const idLine = document.createElement('div');
+    idLine.className = 'id';
+    idLine.textContent = s.id;
+    card.appendChild(idLine);
+
+    return card;
+  }
+
+  window.addEventListener('load', loadTestData);
+</script>
+
+</body>
+</html>
