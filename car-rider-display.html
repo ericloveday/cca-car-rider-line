@@ -41,7 +41,7 @@
     color: #ffffff;
     white-space: nowrap;
   }
-  #clearBtn {
+  #clearBtn, #historyBtn {
     background: none;
     border: 1px solid #555;
     color: #aaa;
@@ -50,7 +50,10 @@
     font-family: 'Montserrat', sans-serif;
     font-size: 12px;
     cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
   }
+  #headerBtns { display: flex; gap: 8px; }
 
   #board {
     display: flex;
@@ -124,7 +127,10 @@
 <header>
   <h1>Car Rider Dismissal</h1>
   <div id="clock"></div>
-  <button id="clearBtn" onclick="confirmClear()">Clear list</button>
+  <div id="headerBtns">
+    <a id="historyBtn" href="history.html">History</a>
+    <button id="clearBtn" onclick="confirmClear()">Clear list</button>
+  </div>
 </header>
 
 <div id="board">
