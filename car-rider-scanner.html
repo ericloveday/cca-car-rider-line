@@ -13,6 +13,7 @@
     --red: #ce1f07;
     --black-side: #1a1a1a;
     --gray: #f4f4f4;
+    --recall: #d98600;
   }
   * { box-sizing: border-box; }
   body {
@@ -102,9 +103,10 @@
     border-radius: 8px;
     margin-bottom: 12px;
   }
-  .groupRow { display: flex; gap: 8px; }
+  .groupRow { display: flex; gap: 8px; flex-wrap: wrap; }
   #sendGroup {
     flex: 1;
+    min-width: 120px;
     padding: 14px;
     background: var(--red);
     color: #fff;
@@ -117,6 +119,21 @@
     letter-spacing: 0.3px;
   }
   #sendGroup:disabled { background: #ccc; cursor: not-allowed; }
+  #recallGroup {
+    flex: 1;
+    min-width: 120px;
+    padding: 14px;
+    background: var(--recall);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  #recallGroup:disabled { background: #ccc; cursor: not-allowed; }
   #clearGroup {
     padding: 14px 16px;
     background: none;
@@ -168,6 +185,10 @@
     margin-bottom: 16px;
     display: none;
   }
+  #flash.recallFlash {
+    background: #fdf1de;
+    color: #a85f00;
+  }
 
   #recent { font-size: 13px; color: #777; }
   #recent div { padding: 6px 0; border-bottom: 1px solid #eee; }
@@ -196,9 +217,10 @@
     <input type="text" id="combinedName" placeholder="Names will build here as you scan..." autocomplete="off">
     <div class="groupRow">
       <button id="sendGroup" onclick="sendGroup()" disabled>Send to Screen</button>
+      <button id="recallGroup" onclick="recallGroup()" disabled>Recalls</button>
       <button id="clearGroup" onclick="resetGroup()">Clear</button>
     </div>
-    <div class="hint">Multiple kids in one car? Just scan or type each one — they'll combine into a single line automatically. Edit the text before sending if you need to.</div>
+    <div class="hint">Multiple kids in one car? Just scan or type each one — they'll combine into a single line automatically. Edit the text before sending if you need to. Already on the board but the car hasn't come through? Scan or type the same name(s) and hit Recalls instead — it'll flag the existing line on the screen rather than adding a duplicate.</div>
   </div>
 
   <div class="manualBox">
@@ -230,6 +252,13 @@
   let lastScanTime = 0;
   let pendingGrades = [];
   const recentEntries = [];
+
+  // Live cache of the queue so Recalls can find an existing entry
+  // without needing its own search UI.
+  let queueCache = {};
+  db.ref('carRiderQueue').on('value', (snapshot) => {
+    queueCache = snapshot.val() || {};
+  });
 
   function getSideFromUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -334,9 +363,11 @@
     const combinedInput = document.getElementById('combinedName');
     const groupBox = document.getElementById('groupBox');
     const sendBtn = document.getElementById('sendGroup');
+    const recallBtn = document.getElementById('recallGroup');
     const hasText = combinedInput.value.trim().length > 0;
     groupBox.classList.toggle('hasEntries', hasText);
     sendBtn.disabled = !hasText;
+    recallBtn.disabled = !hasText;
   }
 
   function resetGroup() {
@@ -364,9 +395,59 @@
     resetGroup();
   }
 
-  function showFlash(text) {
+  // Flags an existing (not-yet-recalled) entry on the board that
+  // matches this side + name so it moves to the Recall column,
+  // instead of creating a duplicate line. Falls back to pushing a
+  // fresh recalled entry if no exact match is found, so a slightly
+  // different spelling or an entry that's already been cleared
+  // still shows up on the board.
+  function recallGroup() {
+    const combinedInput = document.getElementById('combinedName');
+    const name = combinedInput.value.trim();
+    if (!name) return;
+
+    const normalized = name.toLowerCase();
+    let matchKey = null;
+    let matchTimestamp = -1;
+
+    Object.entries(queueCache).forEach(([key, val]) => {
+      if (!val || val.recalled) return;
+      if (val.side !== currentSide) return;
+      if ((val.name || '').trim().toLowerCase() !== normalized) return;
+      if (val.timestamp > matchTimestamp) {
+        matchTimestamp = val.timestamp;
+        matchKey = key;
+      }
+    });
+
+    if (matchKey) {
+      db.ref('carRiderQueue/' + matchKey).update({
+        recalled: true,
+        recalledTimestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+    } else {
+      const gradeSummary = pendingGrades.slice().sort().join('/');
+      db.ref('carRiderQueue').push({
+        name: name,
+        side: currentSide,
+        grade: gradeSummary,
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        recalled: true,
+        recalledTimestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+    }
+
+    showFlash(`Recalled: ${name}`, true);
+    recentEntries.unshift(`Recall: ${name}`);
+    if (recentEntries.length > 5) recentEntries.pop();
+    renderRecent();
+    resetGroup();
+  }
+
+  function showFlash(text, isRecall) {
     const flash = document.getElementById('flash');
     flash.textContent = text;
+    flash.classList.toggle('recallFlash', !!isRecall);
     flash.style.display = 'block';
     clearTimeout(window._flashTimeout);
     window._flashTimeout = setTimeout(() => { flash.style.display = 'none'; }, 1500);
