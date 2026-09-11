@@ -35,7 +35,7 @@
     margin-bottom: 8px;
   }
   .hint { font-size: 12px; color: #888; margin-bottom: 16px; }
-  .btnRow { display: flex; gap: 10px; margin-bottom: 8px; }
+  .btnRow { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
   button {
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
@@ -45,12 +45,25 @@
     border-radius: 8px;
     cursor: pointer;
   }
+  button:disabled { opacity: 0.6; cursor: default; }
   #generateBtn { background: var(--black-side); color: #fff; }
   #printBtn { background: var(--red); color: #fff; }
   #testDataBtn { background: none; border: 1px solid #ccc; color: #555; }
-  #status { font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .toggleRow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #444; margin-bottom: 12px; }
+  #status { font-size: 13px; font-weight: 600; margin-top: 8px; white-space: pre-line; }
   #status.ok { color: #1e7e34; }
   #status.err { color: var(--red); }
+  #status.warn { color: #a06a00; }
+  #configBanner {
+    background: #fff3cd;
+    border: 1px solid #ffe08a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  #configBanner code { background: #fff; padding: 1px 5px; border-radius: 4px; }
 
   #sheet { padding: 0 24px 40px; }
   .gradeGroup { margin-bottom: 30px; page-break-after: always; }
@@ -82,13 +95,15 @@
     text-align: center;
     background: #fff;
   }
+  .card.preview { border-color: #a06a00; }
   .card .name { font-size: 20px; font-weight: 800; line-height: 1.15; margin-bottom: 4px; }
   .card .meta { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
   .card .qr { margin: 4px 0; }
   .card .id { font-size: 10px; color: #999; margin-top: 8px; letter-spacing: 0.5px; }
+  .card .previewTag { font-size: 9px; font-weight: 800; color: #a06a00; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 
   @media print {
-    .controls, #status { display: none; }
+    .controls, #status, #configBanner { display: none; }
     body { background: #fff; }
     .card { border: 1px solid #ccc; }
   }
@@ -98,15 +113,26 @@
 
 <div class="controls">
   <h1>Car Rider QR Card Maker</h1>
-  <div class="sub">Generates one printable card per student, grouped by grade, sized for laminating.</div>
+  <div class="sub">Generates one printable card per student, grouped by grade, sized for laminating. Student IDs are permanent and stored in a shared registry, so you can run this once per grade and IDs will never collide or reset.</div>
+
+  <div id="configBanner">
+    <strong>Setup needed:</strong> this page still has placeholder Firebase settings, so it can't save permanent IDs yet.
+    Fill in <code>firebaseConfig</code> near the top of the &lt;script type="module"&gt; block with your project's values,
+    then reload this page. Until then, "Save to permanent registry" is disabled and every run is preview-only.
+  </div>
 
   <label for="rosterInput">Paste roster (one student per line: Last, First, Grade, Teacher)</label>
   <textarea id="rosterInput" placeholder="McKenney, Andrew, 2, Ms. Rivera&#10;McKenney, Aiden, 4, Mr. Boyd&#10;Smith, Mykinley, K, Mrs. Owens"></textarea>
-  <div class="hint">Grade can be K, 1–8, etc. Teacher is optional — leave blank if you don't have it yet.</div>
+  <div class="hint">Grade can be K, 1–8, etc. Teacher is optional — leave blank if you don't have it yet. Matching is by first + last name; if two students share an exact name, grade is used to tell them apart.</div>
+
+  <div class="toggleRow">
+    <input type="checkbox" id="saveToggle" checked>
+    <label for="saveToggle" style="margin:0;">Save IDs to permanent registry (uncheck to preview only — no database changes)</label>
+  </div>
 
   <div class="btnRow">
     <button id="generateBtn" onclick="generateFromInput()">Generate cards</button>
-    <button id="testDataBtn" onclick="loadTestData()">Load test data</button>
+    <button id="testDataBtn" onclick="loadTestData()">Load test data (preview only)</button>
     <button id="printBtn" onclick="window.print()">Print</button>
   </div>
   <div id="status"></div>
@@ -114,7 +140,43 @@
 
 <div id="sheet"></div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, doc, getDoc, runTransaction
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ---------------------------------------------------------------------
+  // SETUP: replace with your Firebase project's config (Project settings
+  // > General > Your apps > SDK setup and configuration in the Firebase
+  // console). This should be its OWN project, separate from your other
+  // tools, e.g. "cca-car-rider-cards".
+  //
+  // Also set Firestore rules so only your school's users/devices can
+  // write. A reasonable starting point while testing (NOT for
+  // production) is test-mode rules that expire after 30 days; tighten
+  // before real rollout.
+  // ---------------------------------------------------------------------
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+  let db = null;
+  if (isConfigured) {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+  } else {
+    document.getElementById('configBanner').style.display = 'block';
+    document.getElementById('saveToggle').checked = false;
+    document.getElementById('saveToggle').disabled = true;
+  }
+
   const GRADE_ORDER = ['K','1','2','3','4','5','6','7','8','9','10','11','12'];
 
   const TEST_DATA = [
@@ -132,12 +194,13 @@
     { last: 'Winn', first: 'Beau', grade: 'K', teacher: 'Mrs. Owens' }
   ];
 
-  function loadTestData() {
+  window.loadTestData = function loadTestData() {
     document.getElementById('rosterInput').value = TEST_DATA
       .map(s => `${s.last}, ${s.first}, ${s.grade}, ${s.teacher}`)
       .join('\n');
+    document.getElementById('saveToggle').checked = false; // never write test data to the real registry
     generateFromInput();
-  }
+  };
 
   function parseRoster(text) {
     return text.split('\n')
@@ -155,10 +218,62 @@
     return idx === -1 ? 999 : idx;
   }
 
-  function generateFromInput() {
+  function normalize(s) {
+    return s.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  }
+
+  // Base key is first+last. If that collides with another student in
+  // THIS batch, grade is appended to disambiguate (e.g. actual twins
+  // in different grades, or a data-entry duplicate).
+  function baseKey(s) {
+    return `${normalize(s.last)}_${normalize(s.first)}`;
+  }
+
+  function assignDisambiguationKeys(students) {
+    const counts = {};
+    students.forEach(s => { const k = baseKey(s); counts[k] = (counts[k] || 0) + 1; });
+    students.forEach(s => {
+      const k = baseKey(s);
+      s.registryKey = counts[k] > 1 ? `${k}_${normalize(s.grade)}` : k;
+    });
+  }
+
+  // Look up or create a permanent ID for one student in Firestore.
+  // Existing students keep their stored ID (and we don't overwrite
+  // their stored grade/teacher here, since promotion to a new grade
+  // shouldn't change their car-rider ID).
+  async function getOrCreatePermanentId(s) {
+    const ref = doc(db, 'students', s.registryKey);
+    const existing = await getDoc(ref);
+    if (existing.exists()) {
+      return existing.data().id;
+    }
+    const counterRef = doc(db, 'meta', 'studentCounter');
+    return await runTransaction(db, async (tx) => {
+      const counterSnap = await tx.get(counterRef);
+      const current = counterSnap.exists() ? counterSnap.data().value : 0;
+      const next = current + 1;
+      const idStr = 'CCA-' + String(next).padStart(4, '0');
+      tx.set(counterRef, { value: next });
+      tx.set(ref, {
+        first: s.first,
+        last: s.last,
+        grade: s.grade,
+        teacher: s.teacher,
+        id: idStr,
+        createdAt: Date.now()
+      });
+      return idStr;
+    });
+  }
+
+  window.generateFromInput = async function generateFromInput() {
     const raw = document.getElementById('rosterInput').value;
     const students = parseRoster(raw);
     const statusEl = document.getElementById('status');
+    const generateBtn = document.getElementById('generateBtn');
+    const saveToRegistry = document.getElementById('saveToggle').checked && isConfigured;
+
     if (students.length === 0) {
       statusEl.textContent = 'No valid rows found. Use: Last, First, Grade, Teacher (one per line).';
       statusEl.className = 'err';
@@ -166,46 +281,77 @@
       return;
     }
 
-    // Assign a stable sequential ID to each student
-    students.forEach((s, i) => {
-      s.id = 'CCA-' + String(i + 1).padStart(4, '0');
-    });
+    assignDisambiguationKeys(students);
+    const dupKeys = students.filter((s, i) => students.findIndex(o => baseKey(o) === baseKey(s)) !== i);
 
-    students.sort((a, b) => gradeSortKey(a.grade) - gradeSortKey(b.grade) || a.last.localeCompare(b.last));
+    generateBtn.disabled = true;
+    statusEl.className = 'warn';
+    statusEl.textContent = saveToRegistry
+      ? 'Looking up / assigning permanent IDs…'
+      : 'Building preview cards (not saved)…';
 
-    const byGrade = {};
-    students.forEach(s => {
-      const key = s.grade || 'Ungraded';
-      if (!byGrade[key]) byGrade[key] = [];
-      byGrade[key].push(s);
-    });
+    try {
+      let previewCounter = 0;
+      for (const s of students) {
+        if (saveToRegistry) {
+          s.id = await getOrCreatePermanentId(s);
+          s.preview = false;
+        } else {
+          previewCounter++;
+          s.id = 'PREVIEW-' + String(previewCounter).padStart(4, '0');
+          s.preview = true;
+        }
+      }
 
-    const sheet = document.getElementById('sheet');
-    sheet.innerHTML = '';
-    Object.keys(byGrade)
-      .sort((a, b) => gradeSortKey(a) - gradeSortKey(b))
-      .forEach(grade => {
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'gradeGroup';
-        const title = document.createElement('div');
-        title.className = 'gradeTitle';
-        title.textContent = 'Grade ' + grade;
-        groupDiv.appendChild(title);
+      students.sort((a, b) => gradeSortKey(a.grade) - gradeSortKey(b.grade) || a.last.localeCompare(b.last));
 
-        const grid = document.createElement('div');
-        grid.className = 'cardGrid';
-        byGrade[grade].forEach(s => grid.appendChild(buildCard(s)));
-        groupDiv.appendChild(grid);
-        sheet.appendChild(groupDiv);
+      const byGrade = {};
+      students.forEach(s => {
+        const key = s.grade || 'Ungraded';
+        if (!byGrade[key]) byGrade[key] = [];
+        byGrade[key].push(s);
       });
 
-    statusEl.textContent = `Generated ${students.length} card(s) across ${Object.keys(byGrade).length} grade group(s).`;
-    statusEl.className = 'ok';
-  }
+      const sheet = document.getElementById('sheet');
+      sheet.innerHTML = '';
+      Object.keys(byGrade)
+        .sort((a, b) => gradeSortKey(a) - gradeSortKey(b))
+        .forEach(grade => {
+          const groupDiv = document.createElement('div');
+          groupDiv.className = 'gradeGroup';
+          const title = document.createElement('div');
+          title.className = 'gradeTitle';
+          title.textContent = 'Grade ' + grade;
+          groupDiv.appendChild(title);
+
+          const grid = document.createElement('div');
+          grid.className = 'cardGrid';
+          byGrade[grade].forEach(s => grid.appendChild(buildCard(s)));
+          groupDiv.appendChild(grid);
+          sheet.appendChild(groupDiv);
+        });
+
+      let msg = `Generated ${students.length} card(s) across ${Object.keys(byGrade).length} grade group(s).`;
+      msg += saveToRegistry
+        ? ' IDs saved to the permanent registry — safe to run again later for new rosters.'
+        : ' PREVIEW ONLY — these IDs were not saved and will change next time. Check "Save to permanent registry" and regenerate before printing real cards.';
+      if (dupKeys.length > 0) {
+        msg += `\nNote: ${dupKeys.length} student(s) share an exact name with another student in this batch — grade was used to tell them apart. Double-check those cards.`;
+      }
+      statusEl.textContent = msg;
+      statusEl.className = saveToRegistry ? 'ok' : 'warn';
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Error talking to the registry: ' + err.message + '. Check your Firebase config and Firestore rules.';
+      statusEl.className = 'err';
+    } finally {
+      generateBtn.disabled = false;
+    }
+  };
 
   function buildCard(s) {
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card' + (s.preview ? ' preview' : '');
 
     const name = document.createElement('div');
     name.className = 'name';
@@ -229,10 +375,17 @@
     idLine.textContent = s.id;
     card.appendChild(idLine);
 
+    if (s.preview) {
+      const tag = document.createElement('div');
+      tag.className = 'previewTag';
+      tag.textContent = 'Preview — not saved';
+      card.appendChild(tag);
+    }
+
     return card;
   }
 
-  window.addEventListener('load', loadTestData);
+  window.addEventListener('load', () => window.loadTestData());
 </script>
 
 </body>
