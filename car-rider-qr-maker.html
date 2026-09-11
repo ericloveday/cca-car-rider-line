@@ -145,6 +145,9 @@
   import {
     getFirestore, doc, getDoc, runTransaction
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   // ---------------------------------------------------------------------
   // SETUP: replace with your Firebase project's config (Project settings
@@ -158,19 +161,29 @@
   // before real rollout.
   // ---------------------------------------------------------------------
   const firebaseConfig = {
-  apiKey: "AIzaSyDDQkxJ5BZk0zWO4cQcKXu5lyiKsN3vTbI",
-  authDomain: "cca-car-rider-cards.firebaseapp.com",
-  projectId: "cca-car-rider-cards",
-  storageBucket: "cca-car-rider-cards.firebasestorage.app",
-  messagingSenderId: "218084972336",
-  appId: "1:218084972336:web:d6302de236e21fffb39af5"
-};
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
 
   const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
   let db = null;
+  let auth = null;
+  let signedInReady = null; // promise that resolves once anonymous sign-in completes
+
   if (isConfigured) {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    auth = getAuth(app);
+    signedInReady = new Promise((resolve, reject) => {
+      onAuthStateChanged(auth, (user) => {
+        if (user) resolve(user);
+      }, reject);
+      signInAnonymously(auth).catch(reject);
+    });
   } else {
     document.getElementById('configBanner').style.display = 'block';
     document.getElementById('saveToggle').checked = false;
@@ -291,6 +304,11 @@
       : 'Building preview cards (not saved)…';
 
     try {
+      if (saveToRegistry) {
+        statusEl.textContent = 'Connecting to registry…';
+        await signedInReady;
+      }
+
       let previewCounter = 0;
       for (const s of students) {
         if (saveToRegistry) {
